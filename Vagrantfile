@@ -5,15 +5,19 @@
 VAGRANTFILE_API_VERSION = "2"
 
 $script = <<SCRIPT
+apt-get install software-properties-common
 mkdir -p /etc/puppet/modules;
-if [ ! -d /etc/puppet/modules/file_concat ]; then
-puppet module install ispavailability/file_concat
-fi
+#if [ ! -d /etc/puppet/modules/file_concat ]; then
+#puppet module install ispavailability/file_concat
+#fi
 if [ ! -d /etc/puppet/modules/apt ]; then
 puppet module install puppetlabs-apt
 fi
 if [ ! -d /etc/puppet/modules/java ]; then
 puppet module install puppetlabs-java
+fi
+if [ ! -d /etc/puppet/modules/archive ]; then
+puppet module install puppet-archive
 fi
 if [ ! -d /etc/puppet/modules/elasticsearch ]; then
 puppet module install elasticsearch-elasticsearch
@@ -24,8 +28,8 @@ fi
 if [ ! -d /etc/puppet/modules/mongodb ]; then
 puppet module install puppetlabs-mongodb
 fi
-if [ ! -d /etc/puppet/modules/gvm ]; then
-puppet module install paulosuzart-gvm
+if [ ! -d /etc/puppet/modules/sdkman ]; then
+puppet module install paulosuzart-sdkman
 fi
 if [ ! -d /etc/puppet/modules/stdlib ]; then
 puppet module install puppetlabs-stdlib
@@ -46,8 +50,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vbguest.auto_update = true
   end
 
+  config.vm.box_version = "1.0.1"
   config.vm.synced_folder "PATH_TO_DOWNLOADED_PROJECT_HERE", "/measurementor", create: "true" #TODO change this to where you are running measurementor
-  config.vm.box = "hashicorp/precise64"
+  config.vm.box = "puppetlabs/ubuntu-14.04-64-puppet"
   config.vm.network :forwarded_port, guest: 27017, host: 27017 #mongo
   config.vm.network :forwarded_port, guest: 28017, host: 28017 #mongo
   config.vm.network :forwarded_port, guest: 5601, host: 5601 #kibana
@@ -60,6 +65,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     vb.gui = false  #if you want to see the screen, set this to true
   end
   config.vm.provision "shell", inline: $script
-  config.vm.provision "puppet", manifests_path: "manifests", manifest_file: "default.pp" #, module_path: "/etc/puppet/modules"
+  config.vm.provision "puppet", manifests_path: "manifests", manifest_file: "default.pp" #, module_path: "/etc/puppet/modules", options: ["--debug", "--trace"]
 
 end

@@ -8,11 +8,19 @@ define append_if_no_such_line($file, $line, $refreshonly = 'false') {
 
 include stdlib
 include nodejs
+include java
+
 package{ 'unzip': ensure => installed }
+
+exec { "apt-get update":
+    command => "/usr/bin/apt-get update",
+    onlyif => "/bin/sh -c '[ ! -f /var/cache/apt/pkgcache.bin ] || /usr/bin/find /etc/apt/* -cnewer /var/cache/apt/pkgcache.bin | /bin/grep . > /dev/null'",
+}
 
 #mongodb
 class { '::mongodb::globals':
   manage_package_repo => true,
+  require  => Exec['apt-get update'],
 }->
 class { '::mongodb::server': }->
 class { '::mongodb::client': }
@@ -23,35 +31,39 @@ package { 'curl':
 }
 
 ##These will get Java and accept the license
-exec { 'apt-get update':
-  command => '/usr/bin/apt-get update',
-  before  => Apt::Ppa["ppa:webupd8team/java"],
-}
-
-apt::ppa { "ppa:webupd8team/java": }
-
-exec { "accept_java_license":
-  command   => "echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections && echo debconf shared/accepted-oracle-license-v1-1 seen true | sudo debconf-set-selections",
-  cwd       => "/home/vagrant",
-  user      => "vagrant",
-  path      => "/usr/bin/:/bin/",
-  before    => Package["oracle-java7-installer"],
-  logoutput => true,
-}
-
-package { 'oracle-java7-installer':
-  ensure   => installed,
-  require  => Apt::Ppa['ppa:webupd8team/java'],
-}
+# exec { 'apt-get update':
+#   command => '/usr/bin/apt-get update',
+#   before  => Apt::Ppa["ppa:webupd8team/java"],
+# }
+#
+# apt::ppa { "ppa:webupd8team/java": }
+#
+# exec { "accept_java_license":
+#   command   => "echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections && echo debconf shared/accepted-oracle-license-v1-1 seen true | sudo debconf-set-selections",
+#   cwd       => "/home/vagrant",
+#   user      => "vagrant",
+#   path      => "/usr/bin/:/bin/",
+#   before    => Package["oracle-java7-installer"],
+#   logoutput => true,
+# }
+#
+# package { 'oracle-java7-installer':
+#   ensure   => installed,
+#   require  => Apt::Ppa['ppa:webupd8team/java'],
+# }
 
 #need to download elasticsearch with the appropriate key
 apt::source { 'es':
   location          => 'http://packages.elasticsearch.org/elasticsearch/1.4/debian',
   repos             => 'main',
   release           => 'stable',
-  key               => 'D88E42B4',
-  key_source        => 'https://packages.elasticsearch.org/GPG-KEY-elasticsearch',
-  include_src       => false,
+  key               => {
+    'id'              => 'D88E42B4',
+    'source'          => 'https://packages.elasticsearch.org/GPG-KEY-elasticsearch',
+  },
+  include           => {
+    'src'             => false,
+  },
 }
 
 # Elasticsearch
@@ -117,23 +129,23 @@ exec { "start_kibana":
 
 ##https://forge.puppetlabs.com/paulosuzart/gvm
 #### We need groovy & grails for measurementor.  GVM can take care of them for us.
-class { 'gvm' :
+class { 'sdkman' :
   owner   => 'vagrant',
   require => [ Package['curl'] ],
 }
 
-gvm::package { 'grails':
+sdkman::package { 'grails':
   version    => '2.4.5',
   is_default => true,
   ensure     => present,
-  require    => [ Package['curl'], Package["oracle-java7-installer"] ],
+  require    => [ Package['curl'] ],
 }
 
-gvm::package { 'groovy':
+sdkman::package { 'groovy':
   version    => '2.4.3',
   is_default => true,
   ensure     => present,
-  require    => [ Package['curl'], Package["oracle-java7-installer"] ],
+  require    => [ Package['curl'] ],
 }
 
 #TODO maybe have a gradle script that checks the application.properties, then runs the app as a standalone jar (war)
